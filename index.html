@@ -1,70 +1,78 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sv">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Object Detector</title>
-  <link rel="stylesheet" href="styles.css">
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      background-color: #f0f0f0;
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      margin-top: 50px;
-    }
-    video {
-      width: 640px;
-      height: 480px;
-      border: 1px solid #ccc;
-      border-radius: 10px;
-      transition: border-color 0.6s ease, box-shadow 0.6s ease;
-    }
-    .video-container {
-      position: relative;
-      display: inline-block;
-    }
-    .popup-text {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 36px;
-      font-weight: bold;
-      color: #28a745;
-      text-shadow: 0 0 10px rgba(40, 167, 69, 0.7);
-      background-color: rgba(255, 255, 255, 0.8);
-      padding: 10px 20px;
-      border-radius: 10px;
-      display: none;
-      animation: fadeInOut 1.5s ease-in-out;
-    }
-    @keyframes fadeInOut {
-      0% { opacity: 0; }
-      25% { opacity: 1; }
-      75% { opacity: 1; }
-      100% { opacity: 0; }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>MS_TMACHINE Modellhanterare</title>
 </head>
 <body>
-  <div class="container">
-    <h1>Object Detector</h1>
-    <div class="video-container">
-      <video id="webcam" autoplay playsinline></video>
-      <div id="popup-text" class="popup-text">Target Detected!</div>
-    </div>
-  </div>
+    <h1>MS_TMACHINE Modellhanterare</h1>
+    <video id="webcam" autoplay playsinline width="320" height="240"></video>
+    <div id="predictions"></div>
 
-  <!-- TensorFlow.js -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-  <!-- Teachable Machine Image -->
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js"></script>
-  <!-- JavaScript Files -->
-  <script src="modelHandler.js"></script>
-  <script src="uiHandler.js"></script>
+    <!-- Lägg till Teachable Machine-biblioteket om det behövs -->
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+
+    <script>
+        const MODEL_URL = "https://turbomacka.github.io/MS_TMACHINE/";
+
+        let model;
+
+        async function initializeModelAndCamera() {
+            try {
+                console.log("Försöker ladda modellen från:", MODEL_URL + "model.json");
+
+                // Ladda modellen
+                model = await tmImage.load(MODEL_URL + "model.json", MODEL_URL + "metadata.json");
+                console.log("Modell laddad!");
+
+                // Starta webcam
+                const webcamElement = document.getElementById("webcam");
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                webcamElement.srcObject = stream;
+                await webcamElement.play();
+                console.log("Webbkameran är igång!");
+
+                // Starta prediktionsloopen
+                window.requestAnimationFrame(predictionLoop);
+            } catch (error) {
+                console.error("Fel inträffade:", error);
+                alert("Kunde inte starta modellen eller webbkameran. Kolla konsolen för mer info.");
+            }
+        }
+
+        async function predictionLoop() {
+            await makePrediction();
+            window.requestAnimationFrame(predictionLoop);
+        }
+
+        async function makePrediction() {
+            const webcamElement = document.getElementById("webcam");
+            const canvas = document.createElement('canvas');
+            canvas.width = webcamElement.videoWidth;
+            canvas.height = webcamElement.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(webcamElement, 0, 0, canvas.width, canvas.height);
+
+            // Gör en prediktion baserat på canvas-innehållet
+            const predictions = await model.predict(canvas);
+            console.log("Prediktioner:", predictions);
+
+            // Skicka till UI
+            updatePredictionsUI(predictions);
+        }
+
+        function updatePredictionsUI(predictions) {
+            const predDiv = document.getElementById("predictions");
+            predDiv.innerHTML = "";
+            predictions.forEach(p => {
+                const row = document.createElement("div");
+                row.textContent = `${p.className}: ${(p.probability * 100).toFixed(1)}%`;
+                predDiv.appendChild(row);
+            });
+        }
+
+        // Starta appen
+        initializeModelAndCamera();
+    </script>
 </body>
 </html>
